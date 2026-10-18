@@ -101,6 +101,32 @@ No benchmark, parity coverage or budget changed, so the scoreboard was not
 regenerated for this follow-up. Terminal/Powerline column-zero checks remain
 with the main integration session and the maintainer QA runbook.
 
+## Symmetric mode block follow-up
+
+The user requested one painted inner space before the mode letter to balance
+its trailing space. Status publication again fits the original padded label to
+`statusWidth`; Powerline outer padding remains zero. This restores the original
+status formatting, not editor placement. Tests cover both styles, colored inner
+padding, Unicode EX tails, width bounds, counts, deduplication, and cleanup.
+The real Pi/Powerline PTY test verifies ` I ` / ` N ` / ` V ` blocks flush with
+the left edge, including after resize and reload.
+
+The existing `compact status` render benchmark ran before and after this change
+with the same fixtures/environment. Means of per-fixture medians (µs/render):
+
+| Width | Before | After |
+| --- | ---: | ---: |
+| 20 | 165.72 | 166.42 |
+| 80 | 154.69 | 185.48 |
+| 120 | 162.26 | 156.39 |
+
+Raw samples: `/tmp/pi-vim-symmetric-{before,after}.json`; checksum
+17084436 → 17094168 reflects restored padding. Mixed timings, including a
+slower 80-column aggregate, are not evidence of an optimization or performance
+equivalence. No optimization is claimed. Lint/typecheck and all 951 tests pass;
+package check passes at 60502 B packed / 238096 B unpacked with unchanged
+budgets, dependencies, and shipped-file count.
+
 ## Scope and review
 
 Status placement is a Pi UI integration, explicitly not an nvim editing

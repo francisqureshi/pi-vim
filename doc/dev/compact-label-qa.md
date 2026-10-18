@@ -25,8 +25,9 @@ A real Pi 1.3.0 pseudo-terminal run with pi-powerline-footer 0.20.2 passed
 `modeLabelPlacement: "status"` and compact labels. It checked initial I, N, V,
 VL, `:check_`, and `N 2d3f_`, each appearing once in the leftmost Powerline item
 and not in the editor border. With the Powerline fork's `padding: 0` and
-`--flush-left`, the same test also verified that mode/EX/pending labels begin at
-absolute terminal column zero. Two transcript marks, Shift+G, resize and reload
+`--flush-left`, the same test also verified that mode/EX/pending blocks begin at
+absolute terminal column zero. Their painted text has one leading and trailing
+inner space, so the visible mode letter begins at column one. Two transcript marks, Shift+G, resize and reload
 also passed, with zero model requests. Reproduce from the sibling checkout:
 
 ```sh

@@ -2530,16 +2530,17 @@ describe("clipboard mirror policy settings", () => {
 
 // Status placement is pi-vim UI, not an nvim editing-behavior parity surface.
 describe("mode status placement", () => {
-  it("publishes flush-left status and keeps compact I visible at width one", () => {
+  it("publishes a symmetrically padded mode block and bounds narrow widths", () => {
     const labels: string[] = [];
     const editor = new ModalEditor(stubTui, stubTheme, stubKeybindings, {
       modeLabelPlacement: "status",
       modeLabelStyle: "compact",
       onModeLabel: (label) => labels.push(label),
     });
-    assert.equal(labels.at(-1), "I ");
+    assert.equal(labels.at(-1), " I ");
+    editor.render(3);
+    assert.equal(labels.at(-1), " I ");
     editor.render(1);
-    assert.ok(labels.at(-1)?.startsWith("I"));
     assert.equal(visibleWidth(labels.at(-1) ?? ""), 1);
     const count = labels.length;
     editor.render(1);
@@ -2554,24 +2555,24 @@ describe("mode status placement", () => {
         onModeLabel: (label) => labels.push(label),
       });
       const compact = style === "compact";
-      assert.deepEqual(labels, [compact ? "I " : "INSERT "]);
+      assert.deepEqual(labels, [compact ? " I " : " INSERT "]);
       editor.setText("hello world");
       const normal = compact ? "N" : "NORMAL";
       const visual = compact ? "V" : "VISUAL";
       const line = compact ? "VL" : "V-LINE";
       for (const [keys, label, mode] of [
-        [["\x1b"], `${normal} `, "normal"],
-        [["2"], `${normal} 2_ `, "normal"],
-        [["d"], `${normal} 2d_ `, "normal"],
-        [["3", "f"], `${normal} 2d3f_ `, "normal"],
-        [["\x1b", "v"], `${visual} `, "visual"],
-        [["2"], `${visual} 2_ `, "visual"],
-        [["\x1b", "V"], `${line} `, "visual-line"],
-        [["g"], `${line} g_ `, "visual-line"],
-        [["\x1b"], `${line} `, "visual-line"],
+        [["\x1b"], ` ${normal} `, "normal"],
+        [["2"], ` ${normal} 2_ `, "normal"],
+        [["d"], ` ${normal} 2d_ `, "normal"],
+        [["3", "f"], ` ${normal} 2d3f_ `, "normal"],
+        [["\x1b", "v"], ` ${visual} `, "visual"],
+        [["2"], ` ${visual} 2_ `, "visual"],
+        [["\x1b", "V"], ` ${line} `, "visual-line"],
+        [["g"], ` ${line} g_ `, "visual-line"],
+        [["\x1b"], ` ${line} `, "visual-line"],
         [
           ["\x1b", ":", "t", "r", "e", "e"],
-          compact ? ":tree_ " : "EX :tree_ ",
+          compact ? " :tree_ " : " EX :tree_ ",
           "normal",
         ],
       ] as const) {
@@ -2593,7 +2594,7 @@ describe("mode status placement", () => {
   }
 
   for (const style of ["full", "compact"] as const) {
-    it(`${style} preserves Unicode EX graphemes without leading padding`, () => {
+    it(`${style} preserves Unicode EX graphemes with balanced padding`, () => {
       const labels: string[] = [];
       const editor = new ModalEditor(stubTui, stubTheme, stubKeybindings, {
         modeLabelPlacement: "status",
@@ -2603,14 +2604,14 @@ describe("mode status placement", () => {
       sendKeys(editor, ["\x1b", ":", "界", "👩‍💻", "e\u0301"]);
       assert.equal(
         labels.at(-1),
-        style === "full" ? "EX :界👩‍💻é_ " : ":界👩‍💻é_ ",
+        style === "full" ? " EX :界👩‍💻é_ " : " :界👩‍💻é_ ",
       );
       editor.handleInput("x".repeat(40));
       editor.handleInput("界👩‍💻é");
       editor.render(12);
       const label = labels.at(-1) ?? "";
       assert.ok(label.endsWith("界👩‍💻é_ "));
-      assert.ok(label.startsWith(style === "full" ? "EX " : ":"));
+      assert.ok(label.startsWith(style === "full" ? " EX " : " :"));
       assert.ok(visibleWidth(label) <= 12);
       assert.equal(editor.getText(), "");
       assert.equal(editor.getMode(), "normal");
@@ -2624,7 +2625,7 @@ describe("mode status placement", () => {
       onModeLabel: (label) => labels.push(label),
     });
     editor.handleInput("a");
-    assert.deepEqual(labels, ["INSERT "]);
+    assert.deepEqual(labels, [" INSERT "]);
     sendKeys(editor, ["\x1b", ":", ..."abcdefghijklmnopqrstuvwxyz0123456789"]);
     assert.equal(visibleWidth(labels.at(-1) ?? ""), 32);
     for (const width of [12, 4, 1, 8, 80]) {
@@ -2651,14 +2652,14 @@ describe("mode status placement", () => {
       editor.setText("");
     };
     sendKeys(editor, ["\x1b", ":", "t", "r", "e", "e"]);
-    assert.equal(labels.at(-1), ":tree_ ");
+    assert.equal(labels.at(-1), " :tree_ ");
     editor.handleInput("\r");
     assert.deepEqual(submitted, ["/tree"]);
-    assert.equal(labels.at(-1), "N ");
+    assert.equal(labels.at(-1), " N ");
     assert.equal(editor.getMode(), "normal");
     assert.equal(editor.getText(), "preserved prompt");
     sendKeys(editor, ["i", "\r"]);
-    assert.equal(labels.at(-1), "I ");
+    assert.equal(labels.at(-1), " I ");
     assert.equal(editor.getMode(), "insert");
   });
 
@@ -2676,15 +2677,15 @@ describe("mode status placement", () => {
         ex: paint,
       },
     });
-    assert.deepEqual(labels, ["\x1b[31mINSERT \x1b[0m"]);
+    assert.deepEqual(labels, ["\x1b[31m INSERT \x1b[0m"]);
     editor.render(80);
     assert.equal(labels.length, 1);
     color = "\x1b[32m";
     editor.invalidate();
     editor.render(80);
     assert.deepEqual(labels, [
-      "\x1b[31mINSERT \x1b[0m",
-      "\x1b[32mINSERT \x1b[0m",
+      "\x1b[31m INSERT \x1b[0m",
+      "\x1b[32m INSERT \x1b[0m",
     ]);
     editor.render(80);
     assert.equal(labels.length, 2);
@@ -2703,7 +2704,7 @@ describe("mode status placement", () => {
         stubKeybindings,
       );
       assert.deepEqual(extension.statusCalls, [
-        { key: "pi-vim-mode", text: "\x1b[7mINSERT \x1b[27m" },
+        { key: "pi-vim-mode", text: "\x1b[7m INSERT \x1b[27m" },
       ]);
       const replacement = extension.editorFactory(
         stubTui,
@@ -2721,7 +2722,7 @@ describe("mode status placement", () => {
       replacement.handleInput("\x1b");
       assert.equal(
         extension.statusCalls.at(-1)?.text,
-        "\x1b[7mNORMAL \x1b[27m",
+        "\x1b[7m NORMAL \x1b[27m",
       );
       await extension.emitSessionStart();
       assert.deepEqual(extension.statusCalls.at(-1), {
@@ -2743,7 +2744,7 @@ describe("mode status placement", () => {
       );
       assert.equal(
         extension.statusCalls.at(-1)?.text,
-        "\x1b[7mINSERT \x1b[27m",
+        "\x1b[7m INSERT \x1b[27m",
       );
       await extension.emitShutdown();
       assert.deepEqual(extension.statusCalls.at(-1), {
