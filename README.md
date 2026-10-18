@@ -541,6 +541,7 @@ Also out of scope (not already covered by a row above):
 - Supported extension order: `pi-vim` first, `@jordyvd/pi-image-attachments` second. pi-vim does not wrap previous editors.
 - Wrappers decorate in place or forward the CustomEditor surface: lifecycle (`handleInput`, `render`, `invalidate`), text (`getText`, `setText`, `insertTextAtCursor`, `getExpandedText`), callbacks, `actionHandlers`, flags, and reads (`getLines`, `getCursor`, `getMode()`). `getMode()` returns `normal`, `insert`, `visual`, or `visual-line`, so a wrapper can tell the two visual sub-modes apart.
 - Inverse order, insert delegates, and generic composition are unsupported.
+- If using `pi-interactive-subagents`, load it **after pi-vim** (and any other editor-replacing extensions). It decorates the final editor to open its menu on Left when the prompt is empty. Loading pi-vim later replaces that decoration; Ctrl+Alt+A still works because it is a global shortcut. Move subagents last in Pi's `packages` list, then `/reload`.
 
 Smoke:
 
