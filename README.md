@@ -6,7 +6,7 @@ Vim in Pi's prompt. Draft in INSERT, edit in NORMAL, select in VISUAL — and ru
 pi install npm:pi-vim
 ```
 
-Restart Pi after install; requires `@earendil-works/pi-tui >= 0.74.0`.
+Restart Pi after install; requires `@earendil-works/pi-tui >= 0.74.0`. No Powerline dependency is required. Labels stay in the editor by default; see [modeLabelPlacement](#modelabelplacement) to move them to Pi's status area or an optional Powerline footer.
 
 [quickstart](#30-second-quickstart) · [key reference](#full-reference) · [settings](#settings-reference) · [limits](#limits-and-vim-differences)
 
@@ -28,7 +28,7 @@ Hit `Esc` and the prompt is a modal editor: INSERT, NORMAL, VISUAL, and V-LINE. 
 
 ### and the comfort layer
 
-Yanks and deletes mirror to the OS clipboard (configurable), the cursor shape follows the mode on DECSCUSR terminals, the footer always shows `INSERT` / `NORMAL` / `VISUAL` / `V-LINE` / `EX`, and mode-colored borders and labels are one setting away — each mode choosing whether to paint its own color, show the host's border, or defer only while the host is thinking.
+Yanks and deletes mirror to the OS clipboard (configurable), the cursor shape follows the mode on DECSCUSR terminals, the mode label shows `INSERT` / `NORMAL` / `VISUAL` / `V-LINE` / `EX` in the editor by default (or optionally in the status area), and mode-colored borders and labels are one setting away — each mode choosing whether to paint its own color, show the host's border, or defer only while the host is thinking.
 
 ## 30-second quickstart
 
@@ -350,7 +350,7 @@ Visual-mode edits are deliberately **not** dot-repeatable: running one clears th
 
 ## settings reference
 
-Settings are read from `~/.pi/agent/settings.json` and project `.pi/settings.json`. All keys are optional; omitting `piVim` is equivalent to the defaults. Project settings override global for `clipboardMirror`, `exCommand.piDispatch`, `modeColors`, `borderSync`, and `labelSync` (each replaced as a whole object, missing modes defaulting below); `modeChange` and `exCommand.copyInputToClipboard` are user-global only — `modeChange` because it executes shell commands.
+Settings are read from `~/.pi/agent/settings.json` and project `.pi/settings.json`. All keys are optional; omitting `piVim` is equivalent to the defaults. Project settings override global for `clipboardMirror`, `exCommand.piDispatch`, `modeLabelStyle`, `modeLabelPlacement`, `modeColors`, `borderSync`, and `labelSync` (each replaced as a whole object, missing modes defaulting below); `modeChange` and `exCommand.copyInputToClipboard` are user-global only — `modeChange` because it executes shell commands.
 
 Default-equivalent `settings.json`:
 
@@ -358,6 +358,8 @@ Default-equivalent `settings.json`:
 {
   "piVim": {
     "clipboardMirror": "all",
+    "modeLabelStyle": "full",
+    "modeLabelPlacement": "editor",
     "exCommand": {
       "piDispatch": true,
       "copyInputToClipboard": false
@@ -394,9 +396,34 @@ Default-equivalent `settings.json`:
 
 `exCommand.copyInputToClipboard`: `false` leaves the clipboard alone; `true` copies the non-empty composed prompt to the OS clipboard before each dispatch, as a safety net if a command clears the prompt. It is read only from the user-global settings file — writing the prompt to the OS clipboard is an exfiltration capability, so a checked-in project file must not be able to turn it on.
 
+### modeLabelStyle
+
+Set `"piVim": { "modeLabelStyle": "compact" }` for mode labels `I`, `N`, `V`, and `VL`. EX shows `:command_` without an `EX` prefix. The default `"full"` keeps `INSERT`, `NORMAL`, `VISUAL`, `V-LINE`, and `EX :command_`.
+
+Pending commands/counts, colors, and reverse-video styling are unchanged; narrow footers retain grapheme-safe fitting. These are pi-vim UI labels, intentionally not nvim's mode wording; editing behavior is unchanged. Settings are read at session start. Only the exact strings `"full"` and `"compact"` are accepted; invalid values use `"full"`. A present project value overrides global even when invalid (rather than falling back to global).
+
+### modeLabelPlacement
+
+`"editor"` (default) keeps the mode label in the editor footer. `"status"` moves it to Pi's status area under the status key `pi-vim-mode`, without duplicating it in the editor:
+
+```json
+{
+  "piVim": {
+    "modeLabelPlacement": "status",
+    "modeLabelStyle": "compact"
+  }
+}
+```
+
+`modeLabelStyle` still accepts `"full"` or `"compact"` independently of placement. Status labels retain one space inside the painted block on each side (for example, ` I ` or ` N `); the footer independently controls its outer padding. It retains EX command text and pending-command/count feedback, fitted grapheme-safely to at most `min(width, 32)` terminal cells. `labelSync` and mode colors retain the same policies in either placement.
+
+Powerline is optional, not a dependency. If you use a Powerline footer with `customItems`, include the status key `pi-vim-mode` in its `customItems` list so it can display this label. Without Powerline, Pi's own status area displays it.
+
+Settings are read at session start. Only the exact strings `"editor"` and `"status"` are accepted; invalid values use `"editor"`. A present project value overrides global even when invalid. Placement and compact labels are intentional Pi UI divergences, not nvim features; editing semantics do not change.
+
 ### borderSync and labelSync
 
-`borderSync` and `labelSync` set a per-mode paint policy for two surfaces: `borderSync` for Pi's input border, `labelSync` for the footer mode label. Each maps the mode keys `insert`, `normal`, `visual`, `ex` to one of three values:
+`borderSync` and `labelSync` set a per-mode paint policy for two surfaces: `borderSync` for Pi's input border, `labelSync` for the mode label in either editor or status placement. Each maps the mode keys `insert`, `normal`, `visual`, `ex` to one of three values:
 
 | value | effect |
 |---|---|

@@ -245,9 +245,15 @@ const THRESHOLDS = {
   // runtime. Measured packed 58644 B, unpacked 231210 B. Budgets bumped 58500 ->
   // 59000 and 229600 -> 231400, leaving ~356 B / ~190 B headroom. Files stay at
   // 17.
+  // Configurable compact labels and optional status placement add settings,
+  // bounded publication, lifecycle ownership, fitting prefixes and README docs.
+  // Measured 60437 B packed / 237889 B unpacked (baseline 58576 / 231210),
+  // still 17 files and no new runtime dependencies. Budgets leave 563 B /
+  // 2111 B headroom. Tests/benchmarks/QA docs are not shipped; before/after
+  // evidence and rationale are in doc/dev/status-label-evidence.md.
   maxFiles: 17,
-  maxSize: 59000,
-  maxUnpackedSize: 231400,
+  maxSize: 61000,
+  maxUnpackedSize: 240000,
 } as const;
 
 function compareStrings(a: string, b: string): number {
