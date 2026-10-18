@@ -65,6 +65,7 @@ import {
 import {
   DEFAULT_EX_COMMAND_SETTINGS,
   type ExCommandSettings,
+  type ModeLabelStyle,
   readPiVimSettings,
   resolveExCommandSettings,
   resolveSurfaceSyncMaps,
@@ -242,6 +243,7 @@ type ModalEditorInternals = {
 type CustomEditorConstructorArgs = ConstructorParameters<typeof CustomEditor>;
 
 type ModalEditorOptions = {
+  modeLabelStyle?: ModeLabelStyle;
   labelColorizers?: ModeColorizers | null;
   borderColorizers?: ModeColorizers | null;
   // Per-mode paint policy for each surface. "mode" paints the mode color;
@@ -295,6 +297,7 @@ export class ModalEditor extends CustomEditor {
   private undoWindow: { floor: number; openVersion: number } | null = null;
   private currentTransition: TransitionState = "none";
   private onChangeHooked: boolean = false;
+  private readonly modeLabelStyle: ModeLabelStyle;
   private readonly labelColorizers: ModeColorizers | null;
   private readonly borderColorizers: ModeColorizers | null;
   private readonly offBorderColor: ((s: string) => string) | null;
@@ -353,6 +356,7 @@ export class ModalEditor extends CustomEditor {
   ) {
     super(tui, theme, kb);
     this.cursorShapeRuntime = getCursorShapeRuntime(tui);
+    this.modeLabelStyle = opts?.modeLabelStyle ?? "full";
     this.labelColorizers = opts?.labelColorizers ?? null;
     this.borderColorizers = opts?.borderColorizers ?? null;
     this.offBorderColor = opts?.offBorderColor ?? null;
@@ -4130,37 +4134,46 @@ export class ModalEditor extends CustomEditor {
   }
 
   private getModeLabel(): string {
-    if ("insert" === this.mode) return " INSERT ";
-    if (this.pendingExCommand !== null) return ` EX ${this.pendingExCommand}_ `;
+    const compact = this.modeLabelStyle === "compact";
+    if ("insert" === this.mode) return compact ? " I " : " INSERT ";
+    if (this.pendingExCommand !== null) {
+      return `${compact ? " " : " EX "}${this.pendingExCommand}_ `;
+    }
+    const normal = compact ? "N" : "NORMAL";
 
     const prefixCount = this.prefixCount;
     const operatorCount = this.operatorCount;
 
     if (isVisualMode(this.mode)) {
-      const name = this.mode === "visual" ? "VISUAL" : "V-LINE";
+      const name =
+        this.mode === "visual"
+          ? compact
+            ? "V"
+            : "VISUAL"
+          : compact
+            ? "VL"
+            : "V-LINE";
       const pending = `${prefixCount}${this.pendingG ? `g${this.pendingGCount}` : ""}${this.pendingMotion ?? ""}`;
       return pending ? ` ${name} ${pending}_ ` : ` ${name} `;
     }
 
     if (this.pendingReplace) {
-      return prefixCount ? ` NORMAL ${prefixCount}r_ ` : " NORMAL r_ ";
+      return ` ${normal} ${prefixCount}r_ `;
     }
     if (this.pendingOperator && this.pendingMotion) {
-      return ` NORMAL ${prefixCount}${this.pendingOperator}${operatorCount}${this.pendingMotion}_ `;
+      return ` ${normal} ${prefixCount}${this.pendingOperator}${operatorCount}${this.pendingMotion}_ `;
     }
     if (this.pendingOperator) {
-      return ` NORMAL ${prefixCount}${this.pendingOperator}${operatorCount}_ `;
+      return ` ${normal} ${prefixCount}${this.pendingOperator}${operatorCount}_ `;
     }
-    if (this.pendingMotion) return ` NORMAL ${this.pendingMotion}_ `;
+    if (this.pendingMotion) return ` ${normal} ${this.pendingMotion}_ `;
     if (this.pendingG) {
-      return this.pendingGCount
-        ? ` NORMAL g${this.pendingGCount}_ `
-        : " NORMAL g_ ";
+      return ` ${normal} g${this.pendingGCount}_ `;
     }
 
     const count = `${prefixCount}${operatorCount}`;
-    if (count) return ` NORMAL ${count}_ `;
-    return " NORMAL ";
+    if (count) return ` ${normal} ${count}_ `;
+    return ` ${normal} `;
   }
 }
 
@@ -4204,6 +4217,7 @@ export default function (pi: ExtensionAPI) {
     ctx.ui.setEditorComponent((tui, theme, kb) => {
       cursorShapeCleanup = enableCursorShapeSupport(tui);
       const editor = new ModalEditor(tui, theme, kb, {
+        modeLabelStyle: piVimSettings.modeLabelStyle,
         labelColorizers,
         borderColorizers,
         borderSync,

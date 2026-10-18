@@ -2,8 +2,10 @@
 
 Vim in Pi's prompt. Draft in INSERT, edit in NORMAL, select in VISUAL — and run `:!git status` from the middle of a prompt without losing a word of your draft.
 
+This fork adds optional compact labels via `piVim.modeLabelStyle` to [upstream pi-vim](https://github.com/lajarre/pi-vim).
+
 ```bash
-pi install npm:pi-vim
+pi install git:github.com/francisqureshi/pi-vim
 ```
 
 Restart Pi after install; requires `@earendil-works/pi-tui >= 0.74.0`.
@@ -350,7 +352,7 @@ Visual-mode edits are deliberately **not** dot-repeatable: running one clears th
 
 ## settings reference
 
-Settings are read from `~/.pi/agent/settings.json` and project `.pi/settings.json`. All keys are optional; omitting `piVim` is equivalent to the defaults. Project settings override global for `clipboardMirror`, `exCommand.piDispatch`, `modeColors`, `borderSync`, and `labelSync` (each replaced as a whole object, missing modes defaulting below); `modeChange` and `exCommand.copyInputToClipboard` are user-global only — `modeChange` because it executes shell commands.
+Settings are read from `~/.pi/agent/settings.json` and project `.pi/settings.json`. All keys are optional; omitting `piVim` is equivalent to the defaults. Project settings override global for `clipboardMirror`, `exCommand.piDispatch`, `modeLabelStyle`, `modeColors`, `borderSync`, and `labelSync` (each replaced as a whole object, missing modes defaulting below); `modeChange` and `exCommand.copyInputToClipboard` are user-global only — `modeChange` because it executes shell commands.
 
 Default-equivalent `settings.json`:
 
@@ -358,6 +360,7 @@ Default-equivalent `settings.json`:
 {
   "piVim": {
     "clipboardMirror": "all",
+    "modeLabelStyle": "full",
     "exCommand": {
       "piDispatch": true,
       "copyInputToClipboard": false
@@ -393,6 +396,12 @@ Default-equivalent `settings.json`:
 `exCommand.piDispatch`: `true` lets the ex line run Pi slash commands (see [pi-command bridge](#pi-command-bridge)); `false` restores a quit-only ex line. `piDispatch` is read from project settings too: the bridge only reaches commands Pi already trusts, so it grants no capability a project file could not already use.
 
 `exCommand.copyInputToClipboard`: `false` leaves the clipboard alone; `true` copies the non-empty composed prompt to the OS clipboard before each dispatch, as a safety net if a command clears the prompt. It is read only from the user-global settings file — writing the prompt to the OS clipboard is an exfiltration capability, so a checked-in project file must not be able to turn it on.
+
+### modeLabelStyle
+
+Set `"piVim": { "modeLabelStyle": "compact" }` for footer labels `I`, `N`, `V`, and `VL`. EX shows `:command_` without an `EX` prefix. The default `"full"` keeps `INSERT`, `NORMAL`, `VISUAL`, `V-LINE`, and `EX :command_`.
+
+Pending commands/counts, colors, and reverse-video styling are unchanged; narrow footers retain grapheme-safe fitting. These are pi-vim UI labels, intentionally not nvim's mode wording; editing behavior is unchanged. Settings are read at session start. Only the exact strings `"full"` and `"compact"` are accepted; invalid values use `"full"`. A present project value overrides global even when invalid (rather than falling back to global).
 
 ### borderSync and labelSync
 

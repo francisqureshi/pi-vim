@@ -11,10 +11,114 @@ import {
   readPiVimLabelSync,
   readPiVimModeChange,
   readPiVimModeColors,
+  readPiVimModeLabelStyle,
   resolveExCommandSettings,
   resolveSurfaceSyncMaps,
   type SurfaceSyncMap,
 } from "../settings.js";
+
+describe("piVim mode label style settings reader", () => {
+  it("defaults to full when the setting is missing", () => {
+    assert.equal(readPiVimModeLabelStyle(undefined, undefined), "full");
+    assert.equal(readPiVimModeLabelStyle({ piVim: {} }, { piVim: {} }), "full");
+    assert.equal(readPiVimModeLabelStyle(null, null), "full");
+    assert.equal(readPiVimModeLabelStyle("bad", 42), "full");
+  });
+
+  it("reads both exact styles from global and project settings", () => {
+    for (const modeLabelStyle of ["full", "compact"]) {
+      assert.equal(
+        readPiVimModeLabelStyle({ piVim: { modeLabelStyle } }, {}),
+        modeLabelStyle,
+      );
+      assert.equal(
+        readPiVimModeLabelStyle({}, { piVim: { modeLabelStyle } }),
+        modeLabelStyle,
+      );
+    }
+  });
+
+  it("retains the global style when the project key is absent", () => {
+    for (const project of [undefined, {}, { piVim: {} }]) {
+      assert.equal(
+        readPiVimModeLabelStyle(
+          { piVim: { modeLabelStyle: "compact" } },
+          project,
+        ),
+        "compact",
+      );
+    }
+  });
+
+  it("lets either valid project style override global", () => {
+    assert.equal(
+      readPiVimModeLabelStyle(
+        { piVim: { modeLabelStyle: "compact" } },
+        { piVim: { modeLabelStyle: "full" } },
+      ),
+      "full",
+    );
+    assert.equal(
+      readPiVimModeLabelStyle(
+        { piVim: { modeLabelStyle: "full" } },
+        { piVim: { modeLabelStyle: "compact" } },
+      ),
+      "compact",
+    );
+  });
+
+  for (const value of [
+    "",
+    "FULL",
+    "Compact",
+    " compact ",
+    "full ",
+    "short",
+    true,
+    false,
+    1,
+    null,
+    [],
+    {},
+  ]) {
+    it(`defaults invalid global style ${JSON.stringify(value)} to full`, () => {
+      assert.equal(
+        readPiVimModeLabelStyle({ piVim: { modeLabelStyle: value } }, {}),
+        "full",
+      );
+    });
+
+    it(`treats invalid project style ${JSON.stringify(value)} as an override`, () => {
+      assert.equal(
+        readPiVimModeLabelStyle(
+          { piVim: { modeLabelStyle: "compact" } },
+          { piVim: { modeLabelStyle: value } },
+        ),
+        "full",
+      );
+    });
+  }
+
+  it("treats malformed project piVim as an override rather than falling back", () => {
+    for (const piVim of [null, "bad", "compact", true, 42, []]) {
+      assert.equal(
+        readPiVimModeLabelStyle(
+          { piVim: { modeLabelStyle: "compact" } },
+          { piVim },
+        ),
+        "full",
+      );
+    }
+  });
+});
+
+describe("malformed global mode label containers", () => {
+  it("rejects piVim strings even when they spell a valid label style", () => {
+    for (const piVim of ["compact", "full", null, true, 42, []]) {
+      assert.equal(readPiVimModeLabelStyle({ piVim }, {}), "full");
+    }
+  });
+});
 
 describe("piVim mode color settings reader", () => {
   it("returns undefined when mode colors are missing", () => {

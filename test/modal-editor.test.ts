@@ -2518,6 +2518,66 @@ describe("clipboard mirror policy settings", () => {
 describe("mode color settings", () => {
   const reverseInsertLabel = "\x1b[7m INSERT \x1b[27m";
 
+  // Footer wording is pi-vim UI, not an nvim editing-behavior parity surface.
+  it("loads compact labels through configuration without changing mode colors", async () => {
+    const theme = createRecordingTheme();
+    const { editor, restore } = await createBorderEditor(theme, {
+      modeLabelStyle: "compact",
+    });
+    try {
+      editor.setText("hello");
+      for (const [keys, label, token] of [
+        [[], " I ", "borderMuted"],
+        [["\x1b"], " N ", "borderAccent"],
+        [["v"], " V ", "customMessageLabel"],
+        [["V"], " VL ", "customMessageLabel"],
+        [["\x1b", ":", "t", "r", "e", "e"], " :tree_ ", "warning"],
+      ] as const) {
+        sendKeys(editor, [...keys]);
+        const footer = editor.render(80).at(-1);
+        assert.ok(footer?.includes(`\x1b[7m${label}\x1b[27m`));
+        assert.deepEqual(theme.fgCalls.at(-1), {
+          token,
+          text: `\x1b[7m${label}\x1b[27m`,
+        });
+      }
+      assert.equal(editor.getText(), "hello");
+    } finally {
+      restore();
+    }
+  });
+
+  it("compact labels preserve pending tails and fit narrow rendered footers", () => {
+    for (const [keys, tail] of [
+      [[], "N"],
+      [["2"], "N 2_"],
+      [["2", "r"], "N 2r_"],
+      [["2", "d"], "N 2d_"],
+      [["2", "d", "3", "f"], "N 2d3f_"],
+      [["f"], "N f_"],
+      [["g"], "N g_"],
+      [["g", "2"], "N g2_"],
+      [["v", "2"], "V 2_"],
+      [["V", "g"], "VL g_"],
+      [[":", "é", "👩‍💻"], ":é👩‍💻_"],
+    ] as const) {
+      const editor = new ModalEditor(stubTui, stubTheme, stubKeybindings, {
+        modeLabelStyle: "compact",
+      });
+      editor.setText("hello world");
+      sendKeys(editor, ["\x1b", ...keys]);
+      assert.ok(editor.render(80).at(-1)?.endsWith(` ${tail} `), tail);
+      assert.deepEqual(editor.render(80), editor.render(80), "cached render");
+      for (const width of [1, 2, 3, 4, 6, 8, 12]) {
+        assert.ok(
+          visibleWidth(editor.render(width).at(-1) ?? "") <= width,
+          `${tail} at ${width}`,
+        );
+      }
+      assert.equal(editor.getText(), "hello world");
+    }
+  });
+
   it("mode label uses default insert, normal, and EX mode color tokens", async () => {
     const theme = createRecordingTheme();
     const restore = setPiVimSettingsReaderForTests(() => ({}));

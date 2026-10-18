@@ -1,5 +1,7 @@
 import { SettingsManager } from "@earendil-works/pi-coding-agent";
 
+export type ModeLabelStyle = "full" | "compact";
+
 export type ModeColorSettings = {
   insert?: string;
   normal?: string;
@@ -33,6 +35,7 @@ export type SurfaceSyncMap = {
 };
 
 export type PiVimSettings = {
+  modeLabelStyle?: ModeLabelStyle;
   clipboardMirror?: unknown;
   exCommand?: unknown;
   globalExCommand?: unknown;
@@ -184,6 +187,21 @@ export function resolveExCommandSettings(
   };
 }
 
+export function readPiVimModeLabelStyle(
+  g: unknown,
+  p: unknown,
+): ModeLabelStyle {
+  const v = get(p, "modeLabelStyle");
+  const source = v === M ? g : p;
+  // A malformed piVim container is not a style value, even if it is "compact".
+  // A present but invalid project value resets to the default, not global.
+  return rec(source) &&
+    rec(source.piVim) &&
+    (v === M ? get(g, "modeLabelStyle") : v) === "compact"
+    ? "compact"
+    : "full";
+}
+
 export function readPiVimModeColors(g: unknown, p: unknown) {
   const v = get(p, "modeColors");
   // Project settings are a whole-setting override. If a project checks in an
@@ -269,6 +287,7 @@ function disk(cwd: string): PiVimSettings {
     clipboardMirror: readPiVimClipboardMirrorSetting(g, p),
     exCommand: readPiVimExCommandSetting(g, p),
     globalExCommand: readPiVimGlobalExCommandSetting(g, p),
+    modeLabelStyle: readPiVimModeLabelStyle(g, p),
     modeColors: readPiVimModeColors(g, p),
     modeChange: readPiVimModeChange(g, p),
     borderSync: readPiVimBorderSync(g, p),
