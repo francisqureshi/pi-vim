@@ -24,7 +24,9 @@ PI_VIM_EXTENSION="$PWD/index.ts" uv run --with pyte python ../pi-bookmarks/test/
 A real Pi 1.3.0 pseudo-terminal run with pi-powerline-footer 0.20.2 passed
 `modeLabelPlacement: "status"` and compact labels. It checked initial I, N, V,
 VL, `:check_`, and `N 2d3f_`, each appearing once in the leftmost Powerline item
-and not in the editor border. Two transcript marks, Shift+G, resize and reload
+and not in the editor border. With the Powerline fork's `padding: 0` and
+`--flush-left`, the same test also verified that mode/EX/pending labels begin at
+absolute terminal column zero. Two transcript marks, Shift+G, resize and reload
 also passed, with zero model requests. Reproduce from the sibling checkout:
 
 ```sh
@@ -49,7 +51,10 @@ and project settings; restart Pi after each configuration change.
 - Enter `2d3f`, `2r`, and `g`, cancelling between checks. Verify pending/count
   feedback appears in the status label and clears on cancellation or completion.
 - Type a long EX line containing combining accents, wide CJK characters, and a
-  joined emoji. Resize below and above 32 columns: the status payload must fit
+  joined emoji. With the footer's outer padding disabled, confirm the mode
+  begins at column zero: status adds no leading space. At one available column,
+  compact insert must still show `I`. Editor placement must keep its spacer.
+  Resize below and above 32 columns: the status payload must fit
   within `min(width, 32)` terminal cells, with no split graphemes, raw escapes,
   wrapping, or stale tails when it shrinks. Check pending feedback at narrow
   widths too; fitting may truncate content.

@@ -62,6 +62,45 @@ There are no new runtime dependencies or shipped test/benchmark files.
 `pack:check` then passed against the new budgets. Scoreboard regeneration is
 required by both this harness extension and the budget change.
 
+## Flush-left status follow-up (2026-10-18)
+
+Baseline: `a8fa3e0`. Status now fits at `statusWidth + 1` then removes the
+leading spacer before applying colors. Editor placement is untouched. A
+focused callback regression failed first (`" I " !== "I "`), then passed
+with the implementation; it also checks compact `I` remains visible at width
+one and repeated rendering is deduplicated. Full/compact Unicode EX and
+existing count/color/lifecycle tests cover the same callback seam.
+
+Ran the existing harness before and after, without modifying it:
+
+```sh
+node --import tsx/esm script/render-label-bench.ts compact status
+node --import tsx/esm script/render-label-bench.ts full
+node --import tsx/esm script/render-label-bench.ts compact
+```
+
+Raw results: `/tmp/flush-{before,after}-{status,full,compact}.json`.
+Same fixture set and environment as above. Arithmetic means of fixture
+medians, µs/render:
+
+| Width | Status before/after | Editor full before/after | Editor compact before/after |
+| --- | ---: | ---: | ---: |
+| 20 | 242.11 / 193.49 | 209.43 / 189.81 | 216.87 / 180.27 |
+| 80 | 206.02 / 158.64 | 247.65 / 208.10 | 265.73 / 198.79 |
+| 120 | 199.56 / 168.25 | 286.18 / 218.42 | 297.03 / 217.26 |
+
+Unchanged editor paths also became substantially faster in these sequential
+runs: machine contention/noise prevents attributing the differences to this
+one-line change. No speedup is claimed or optimization added. Editor checksums
+remain exactly 14856000 (full) and 15624000 (compact). Status checksum changes
+17094168 → 17084436 because published labels lose their leading spacer.
+
+`npm run check` passes lint, typecheck and 951 tests. Fresh `pack:check` passes:
+60496 B packed / 238061 B unpacked, 17 files; existing budgets remain unchanged.
+No benchmark, parity coverage or budget changed, so the scoreboard was not
+regenerated for this follow-up. Terminal/Powerline column-zero checks remain
+with the main integration session and the maintainer QA runbook.
+
 ## Scope and review
 
 Status placement is a Pi UI integration, explicitly not an nvim editing

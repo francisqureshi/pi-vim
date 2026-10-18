@@ -417,7 +417,7 @@ Pending commands/counts, colors, and reverse-video styling are unchanged; narrow
 }
 ```
 
-`modeLabelStyle` still accepts `"full"` or `"compact"` independently of placement. Status output retains EX command text and pending-command/count feedback, fitted grapheme-safely to at most `min(width, 32)` terminal cells. `labelSync` and mode colors retain the same policies in either placement.
+`modeLabelStyle` still accepts `"full"` or `"compact"` independently of placement. Status output has no leading padding (the footer controls its own outer spacing). It retains EX command text and pending-command/count feedback, fitted grapheme-safely to at most `min(width, 32)` terminal cells. `labelSync` and mode colors retain the same policies in either placement.
 
 Powerline is optional, not a dependency. If you use a Powerline footer with `customItems`, include the status key `pi-vim-mode` in its `customItems` list so it can display this label. Without Powerline, Pi's own status area displays it.
 
