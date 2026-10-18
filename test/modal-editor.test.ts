@@ -241,6 +241,8 @@ function assertNoCursorShapeSequences(lines: string[]): void {
 
 type InstalledExtension = {
   editorFactory: EditorFactory;
+  readonly statusCalls: Array<{ key: string; text: string | undefined }>;
+  emitSessionStart(): Promise<void>;
   eventBusEmissions(): Array<{ event: string; data: unknown }>;
   readonly notificationCalls: number;
   readonly notifications: NotificationCall[];
@@ -280,6 +282,7 @@ async function installExtensionWithEditorFactory(
   const pi = createExtensionApiHarness();
   let editorFactory: EditorFactory | null = null;
   let notificationCalls = 0;
+  const statusCalls: Array<{ key: string; text: string | undefined }> = [];
   const notifications: NotificationCall[] = [];
   let shutdownCalls = 0;
   const ctx = {
@@ -287,6 +290,9 @@ async function installExtensionWithEditorFactory(
     hasUI: true,
     ui: {
       theme,
+      setStatus(key: string, text: string | undefined): void {
+        statusCalls.push({ key, text });
+      },
       setEditorComponent(factory: EditorFactory): void {
         editorFactory = factory;
       },
@@ -308,7 +314,14 @@ async function installExtensionWithEditorFactory(
   }
 
   return {
-    editorFactory,
+    get editorFactory() {
+      assert.ok(editorFactory);
+      return editorFactory;
+    },
+    statusCalls,
+    async emitSessionStart(): Promise<void> {
+      await pi.emit("session_start", undefined, ctx);
+    },
     eventBusEmissions: () => pi.eventBusEmissions(),
     setCommands: (names: readonly string[]) => pi.setCommands(names),
     get notificationCalls() {
@@ -2509,6 +2522,225 @@ describe("clipboard mirror policy settings", () => {
       assert.equal(notification.type, "warning");
       assert.match(notification.message, /delete/);
       assert.match(notification.message, /all, yank, never/);
+    } finally {
+      restore();
+    }
+  });
+});
+
+// Status placement is pi-vim UI, not an nvim editing-behavior parity surface.
+describe("mode status placement", () => {
+  for (const style of ["full", "compact"] as const) {
+    it(`${style} publishes initial and current feedback without duplicate border labels`, () => {
+      const labels: string[] = [];
+      const editor = new ModalEditor(stubTui, stubTheme, stubKeybindings, {
+        modeLabelPlacement: "status",
+        modeLabelStyle: style,
+        onModeLabel: (label) => labels.push(label),
+      });
+      const compact = style === "compact";
+      assert.deepEqual(labels, [compact ? " I " : " INSERT "]);
+      editor.setText("hello world");
+      const normal = compact ? "N" : "NORMAL";
+      const visual = compact ? "V" : "VISUAL";
+      const line = compact ? "VL" : "V-LINE";
+      for (const [keys, label, mode] of [
+        [["\x1b"], ` ${normal} `, "normal"],
+        [["2"], ` ${normal} 2_ `, "normal"],
+        [["d"], ` ${normal} 2d_ `, "normal"],
+        [["3", "f"], ` ${normal} 2d3f_ `, "normal"],
+        [["\x1b", "v"], ` ${visual} `, "visual"],
+        [["2"], ` ${visual} 2_ `, "visual"],
+        [["\x1b", "V"], ` ${line} `, "visual-line"],
+        [["g"], ` ${line} g_ `, "visual-line"],
+        [["\x1b"], ` ${line} `, "visual-line"],
+        [
+          ["\x1b", ":", "t", "r", "e", "e"],
+          compact ? " :tree_ " : " EX :tree_ ",
+          "normal",
+        ],
+      ] as const) {
+        sendKeys(editor, [...keys]);
+        assert.equal(labels.at(-1), label, "input publishes before render");
+        assert.equal(editor.getMode(), mode);
+        const count = labels.length;
+        const rendered = editor.render(80);
+        assert.ok(rendered.every((row) => !row.includes(label)));
+        editor.render(80);
+        assert.equal(
+          labels.length,
+          count,
+          "unchanged renders are deduplicated",
+        );
+      }
+      assert.equal(editor.getText(), "hello world");
+    });
+  }
+
+  it("deduplicates unchanged input and bounds status to 32 or actual render width", () => {
+    const labels: string[] = [];
+    const editor = new ModalEditor(stubTui, stubTheme, stubKeybindings, {
+      modeLabelPlacement: "status",
+      onModeLabel: (label) => labels.push(label),
+    });
+    editor.handleInput("a");
+    assert.deepEqual(labels, [" INSERT "]);
+    sendKeys(editor, ["\x1b", ":", ..."abcdefghijklmnopqrstuvwxyz0123456789"]);
+    assert.equal(visibleWidth(labels.at(-1) ?? ""), 32);
+    for (const width of [12, 4, 1, 8, 80]) {
+      editor.render(width);
+      assert.equal(visibleWidth(labels.at(-1) ?? ""), Math.min(32, width));
+      const count = labels.length;
+      editor.render(width);
+      assert.equal(labels.length, count);
+    }
+    assert.equal(editor.getText(), "a");
+  });
+
+  it("clears EX feedback after command submission and restores current normal label", () => {
+    const labels: string[] = [];
+    const submitted: string[] = [];
+    const editor = new ModalEditor(stubTui, stubTheme, stubKeybindings, {
+      modeLabelPlacement: "status",
+      modeLabelStyle: "compact",
+      onModeLabel: (label) => labels.push(label),
+    });
+    editor.setText("preserved prompt");
+    editor.onSubmit = (text) => {
+      submitted.push(text);
+      editor.setText("");
+    };
+    sendKeys(editor, ["\x1b", ":", "t", "r", "e", "e"]);
+    assert.equal(labels.at(-1), " :tree_ ");
+    editor.handleInput("\r");
+    assert.deepEqual(submitted, ["/tree"]);
+    assert.equal(labels.at(-1), " N ");
+    assert.equal(editor.getMode(), "normal");
+    assert.equal(editor.getText(), "preserved prompt");
+    sendKeys(editor, ["i", "\r"]);
+    assert.equal(labels.at(-1), " I ");
+    assert.equal(editor.getMode(), "insert");
+  });
+
+  it("republishes changed theme paint on render without changing the mode", () => {
+    const labels: string[] = [];
+    let color = "\x1b[31m";
+    const paint = (text: string) => `${color}${text}\x1b[0m`;
+    const editor = new ModalEditor(stubTui, stubTheme, stubKeybindings, {
+      modeLabelPlacement: "status",
+      onModeLabel: (label) => labels.push(label),
+      labelColorizers: {
+        insert: paint,
+        normal: paint,
+        visual: paint,
+        ex: paint,
+      },
+    });
+    assert.deepEqual(labels, ["\x1b[31m INSERT \x1b[0m"]);
+    editor.render(80);
+    assert.equal(labels.length, 1);
+    color = "\x1b[32m";
+    editor.invalidate();
+    editor.render(80);
+    assert.deepEqual(labels, [
+      "\x1b[31m INSERT \x1b[0m",
+      "\x1b[32m INSERT \x1b[0m",
+    ]);
+    editor.render(80);
+    assert.equal(labels.length, 2);
+    assert.equal(editor.getMode(), "insert");
+  });
+
+  it("publishes through the factory and clears sessions while rejecting stale editors", async () => {
+    const restore = setPiVimSettingsReaderForTests(() => ({
+      modeLabelPlacement: "status",
+    }));
+    try {
+      const extension = await installExtensionWithEditorFactory();
+      const first = extension.editorFactory(
+        stubTui,
+        stubTheme,
+        stubKeybindings,
+      );
+      assert.deepEqual(extension.statusCalls, [
+        { key: "pi-vim-mode", text: "\x1b[7m INSERT \x1b[27m" },
+      ]);
+      const replacement = extension.editorFactory(
+        stubTui,
+        stubTheme,
+        stubKeybindings,
+      );
+      const count = extension.statusCalls.length;
+      first.handleInput("\x1b");
+      first.render(4);
+      assert.equal(
+        extension.statusCalls.length,
+        count,
+        "replaced editor is stale",
+      );
+      replacement.handleInput("\x1b");
+      assert.equal(
+        extension.statusCalls.at(-1)?.text,
+        "\x1b[7m NORMAL \x1b[27m",
+      );
+      await extension.emitSessionStart();
+      assert.deepEqual(extension.statusCalls.at(-1), {
+        key: "pi-vim-mode",
+        text: undefined,
+      });
+      const clearedCount = extension.statusCalls.length;
+      replacement.handleInput("i");
+      replacement.render(4);
+      assert.equal(
+        extension.statusCalls.length,
+        clearedCount,
+        "previous session is stale",
+      );
+      const current = extension.editorFactory(
+        stubTui,
+        stubTheme,
+        stubKeybindings,
+      );
+      assert.equal(
+        extension.statusCalls.at(-1)?.text,
+        "\x1b[7m INSERT \x1b[27m",
+      );
+      await extension.emitShutdown();
+      assert.deepEqual(extension.statusCalls.at(-1), {
+        key: "pi-vim-mode",
+        text: undefined,
+      });
+      const shutdownCount = extension.statusCalls.length;
+      current.handleInput("\x1b");
+      current.render(4);
+      await extension.emitShutdown();
+      assert.equal(extension.statusCalls.length, shutdownCount);
+    } finally {
+      restore();
+    }
+  });
+
+  it("default placement never publishes or clears status", async () => {
+    const restore = setPiVimSettingsReaderForTests(() => ({}));
+    try {
+      const extension = await installExtensionWithEditorFactory();
+      const editor = extension.editorFactory(
+        stubTui,
+        stubTheme,
+        stubKeybindings,
+      );
+      editor.handleInput("\x1b");
+      assert.ok(editor.render(80).at(-1)?.includes(" NORMAL "));
+      await extension.emitSessionStart();
+      await extension.emitShutdown();
+      assert.deepEqual(extension.statusCalls, []);
+      const labels: string[] = [];
+      const direct = new ModalEditor(stubTui, stubTheme, stubKeybindings, {
+        onModeLabel: (label) => labels.push(label),
+      });
+      direct.handleInput("\x1b");
+      direct.render(80);
+      assert.deepEqual(labels, []);
     } finally {
       restore();
     }

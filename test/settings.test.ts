@@ -11,11 +11,52 @@ import {
   readPiVimLabelSync,
   readPiVimModeChange,
   readPiVimModeColors,
+  readPiVimModeLabelPlacement,
   readPiVimModeLabelStyle,
   resolveExCommandSettings,
   resolveSurfaceSyncMaps,
   type SurfaceSyncMap,
 } from "../settings.js";
+
+describe("piVim mode label placement", () => {
+  const global = { piVim: { modeLabelPlacement: "status" } };
+  it("defaults to editor and reads exact values with project precedence", () => {
+    assert.equal(readPiVimModeLabelPlacement({}, {}), "editor");
+    for (const value of ["editor", "status"]) {
+      const settings = { piVim: { modeLabelPlacement: value } };
+      assert.equal(readPiVimModeLabelPlacement(settings, {}), value);
+      assert.equal(readPiVimModeLabelPlacement(global, settings), value);
+    }
+    for (const absent of [undefined, null, {}, { piVim: {} }]) {
+      assert.equal(readPiVimModeLabelPlacement(global, absent), "status");
+    }
+  });
+  it("invalid present project values reset rather than inherit", () => {
+    for (const value of [
+      undefined,
+      null,
+      [],
+      {},
+      true,
+      3,
+      "STATUS",
+      " status ",
+    ]) {
+      const settings = { piVim: { modeLabelPlacement: value } };
+      assert.equal(readPiVimModeLabelPlacement(settings, {}), "editor");
+      assert.equal(readPiVimModeLabelPlacement(global, settings), "editor");
+    }
+  });
+  it("rejects malformed containers, including the literal status string", () => {
+    for (const piVim of [undefined, null, [], "status", true, 3]) {
+      assert.equal(readPiVimModeLabelPlacement({ piVim }, {}), "editor");
+      assert.equal(readPiVimModeLabelPlacement(global, { piVim }), "editor");
+    }
+    for (const value of [null, [], "status", true, 3]) {
+      assert.equal(readPiVimModeLabelPlacement(value, value), "editor");
+    }
+  });
+});
 
 describe("piVim mode label style settings reader", () => {
   it("defaults to full when the setting is missing", () => {

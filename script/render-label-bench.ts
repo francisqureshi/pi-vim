@@ -4,9 +4,14 @@ import { ModalEditor } from "../index.js";
 
 type Args = ConstructorParameters<typeof ModalEditor>;
 const style = process.argv[2];
-if (process.argv.length !== 3 || (style !== "full" && style !== "compact")) {
+const placement = process.argv[3] ?? "editor";
+if (
+  process.argv.length > 4 ||
+  (style !== "full" && style !== "compact") ||
+  (placement !== "editor" && placement !== "status")
+) {
   console.error(
-    "Usage: node --import tsx/esm script/render-label-bench.ts full|compact",
+    "Usage: node --import tsx/esm script/render-label-bench.ts full|compact [editor|status]",
   );
   process.exitCode = 1;
 } else {
@@ -28,13 +33,17 @@ if (process.argv.length !== 3 || (style !== "full" && style !== "compact")) {
           // options object lets this same harness compile against both versions.
           const options = {
             modeLabelStyle: style,
+            modeLabelPlacement: placement,
+            onModeLabel: (label: string) => {
+              checksum += label.length;
+            },
             labelColorizers: { insert: paint, normal: paint, ex: paint },
             borderColorizers: { insert: paint, normal: paint, ex: paint },
           };
           const editor = new ModalEditor(
             {
               requestRender() {},
-              terminal: { rows: 40, cols: width },
+              terminal: { rows: 40, columns: width },
             } as unknown as Args[0],
             {
               borderColor: paint,
@@ -90,6 +99,7 @@ if (process.argv.length !== 3 || (style !== "full" && style !== "compact")) {
         platform: `${process.platform}/${process.arch}`,
         cpu: cpus()[0]?.model,
         style,
+        placement,
         warmup,
         samples,
         iterations,

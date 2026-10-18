@@ -1,6 +1,7 @@
 import { SettingsManager } from "@earendil-works/pi-coding-agent";
 
 export type ModeLabelStyle = "full" | "compact";
+export type ModeLabelPlacement = "editor" | "status";
 
 export type ModeColorSettings = {
   insert?: string;
@@ -36,6 +37,7 @@ export type SurfaceSyncMap = {
 
 export type PiVimSettings = {
   modeLabelStyle?: ModeLabelStyle;
+  modeLabelPlacement?: ModeLabelPlacement;
   clipboardMirror?: unknown;
   exCommand?: unknown;
   globalExCommand?: unknown;
@@ -202,6 +204,19 @@ export function readPiVimModeLabelStyle(
     : "full";
 }
 
+export function readPiVimModeLabelPlacement(
+  g: unknown,
+  p: unknown,
+): ModeLabelPlacement {
+  const v = get(p, "modeLabelPlacement");
+  const source = v === M ? g : p;
+  return rec(source) &&
+    rec(source.piVim) &&
+    (v === M ? get(g, "modeLabelPlacement") : v) === "status"
+    ? "status"
+    : "editor";
+}
+
 export function readPiVimModeColors(g: unknown, p: unknown) {
   const v = get(p, "modeColors");
   // Project settings are a whole-setting override. If a project checks in an
@@ -288,6 +303,7 @@ function disk(cwd: string): PiVimSettings {
     exCommand: readPiVimExCommandSetting(g, p),
     globalExCommand: readPiVimGlobalExCommandSetting(g, p),
     modeLabelStyle: readPiVimModeLabelStyle(g, p),
+    modeLabelPlacement: readPiVimModeLabelPlacement(g, p),
     modeColors: readPiVimModeColors(g, p),
     modeChange: readPiVimModeChange(g, p),
     borderSync: readPiVimBorderSync(g, p),

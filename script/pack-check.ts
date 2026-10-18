@@ -251,9 +251,13 @@ const THRESHOLDS = {
   // no new shipped files or dependencies. Budgets leave 271 B / 195 B
   // headroom; test/benchmark/QA docs stay
   // outside the package.
+  // Optional status placement adds bounded publication, lifecycle ownership,
+  // settings and documentation: measured 60418 B / 237879 B, still 17 files
+  // and no new runtime dependencies. Budgets leave 582 B / 2121 B headroom;
+  // before/after replay and rationale are in doc/dev/status-label-evidence.md.
   maxFiles: 17,
-  maxSize: 59500,
-  maxUnpackedSize: 233500,
+  maxSize: 61000,
+  maxUnpackedSize: 240000,
 } as const;
 
 function compareStrings(a: string, b: string): number {
