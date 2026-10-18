@@ -55,8 +55,11 @@ terminal latency, idle invocation rates, or callback work during input
 
 ## Final formatting and terminal checks
 
-Status publication fits the same padded label used by editor placement into
-`min(width, 32)` cells, then applies colors. Both inner spaces belong to the
+Status publication fits the same label used by editor placement into
+`min(width, 32)` cells, reserving its trailing inner space before fitting and
+then applying colors. Narrow-width regressions exercise both styles, overflow,
+Unicode EX text, and painted padding; below three cells the mode may be
+entirely clipped. Both inner spaces belong to the
 painted block (for example ` I `); the optional footer controls its own outer
 padding independently. No asymmetric/flush-left formatting option is added.
 The final status-render replay returned the same 17094168 checksum. Its
@@ -71,7 +74,7 @@ checks are recorded in `compact-label-qa.md`.
 
 ## Packaging and review
 
-The PR package measures 60437 B packed / 237889 B unpacked, versus the
+The PR package measures 60483 B packed / 238016 B unpacked, versus the
 upstream baseline of 58576 B / 231210 B. Budgets move from 59000 / 231400
 to 61000 / 240000 to cover both settings, status lifecycle/callback machinery,
 fitting prefixes, and user documentation. The package still has 17 files,
@@ -82,5 +85,10 @@ feature; no motion/operator semantics or parity cases change. Tests cover
 configuration precedence/malformed containers, feedback, bounded width,
 deduplicated publication, theme repaint, submit, factory initialization,
 session replacement, shutdown and stale-editor suppression. The default
-editor-rendering branch is unchanged. Self-review follows
+editor-rendering branch is unchanged. Input/publication measurements and their
+limitations are in `status-input-evidence.md`. Cursor-runtime lifecycle tests
+cover editor replacement, repeated sessions, both captured hardware-cursor
+settings, and idempotent shutdown. `npm run check` passes all 957 tests, lint,
+and typecheck; the regenerated scoreboard records 321 nvim-parity passes and
+23 existing documented skips. Package checks pass. Self-review follows
 `doc/review-guidelines.md`; no release metadata or Powerline code changes.

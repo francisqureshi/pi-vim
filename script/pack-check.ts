@@ -247,9 +247,9 @@ const THRESHOLDS = {
   // 17.
   // Configurable compact labels and optional status placement add settings,
   // bounded publication, lifecycle ownership, fitting prefixes and README docs.
-  // Measured 60437 B packed / 237889 B unpacked (baseline 58576 / 231210),
-  // still 17 files and no new runtime dependencies. Budgets leave 563 B /
-  // 2111 B headroom. Tests/benchmarks/QA docs are not shipped; before/after
+  // Measured 60483 B packed / 238016 B unpacked (baseline 58576 / 231210),
+  // still 17 files and no new runtime dependencies. Budgets leave 517 B /
+  // 1984 B headroom. Tests/benchmarks/QA docs are not shipped; before/after
   // evidence and rationale are in doc/dev/status-label-evidence.md.
   maxFiles: 17,
   maxSize: 61000,

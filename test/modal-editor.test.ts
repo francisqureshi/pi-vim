@@ -2547,6 +2547,39 @@ describe("mode status placement", () => {
     assert.equal(labels.length, count);
   });
   for (const style of ["full", "compact"] as const) {
+    it(`${style} reserves both painted inner spaces when feedback overflows`, () => {
+      const labels: string[] = [];
+      const paint = (text: string) => `\x1b[34m${text}\x1b[0m`;
+      const editor = new ModalEditor(stubTui, stubTheme, stubKeybindings, {
+        modeLabelPlacement: "status",
+        modeLabelStyle: style,
+        onModeLabel: (label) => labels.push(label),
+        labelColorizers: {
+          insert: paint,
+          normal: paint,
+          visual: paint,
+          ex: paint,
+        },
+      });
+      for (const keys of [
+        [],
+        ["\x1b", "2", "d"],
+        ["\x1b", ":", "界👩‍💻e\u0301".repeat(20)],
+      ]) {
+        sendKeys(editor, keys);
+        for (const width of [1, 2, 3, 4, 5, 8, 12, 32]) {
+          editor.render(width);
+          const label = labels.at(-1) ?? "";
+          assert.ok(visibleWidth(label) <= width, `bounded at ${width}`);
+          if (width >= 3) {
+            assert.ok(label.startsWith("\x1b[34m "), `leading at ${width}`);
+            assert.ok(label.endsWith(" \x1b[0m"), `trailing at ${width}`);
+          }
+        }
+      }
+      assert.equal(editor.getText(), "");
+      assert.equal(editor.getMode(), "normal");
+    });
     it(`${style} publishes initial and current feedback without duplicate border labels`, () => {
       const labels: string[] = [];
       const editor = new ModalEditor(stubTui, stubTheme, stubKeybindings, {
@@ -3528,6 +3561,114 @@ describe("mode color settings", () => {
 });
 
 describe("cursor shape lifecycle", () => {
+  for (const initialShowHardwareCursor of [false, true]) {
+    it(`restores the original ${initialShowHardwareCursor} cursor setting across factory replacement and shutdown`, async () => {
+      const extension = await installExtensionWithEditorFactory();
+      const tui = createCursorShapeTui({ initialShowHardwareCursor });
+      const first = extension.editorFactory(tui, stubTheme, stubKeybindings);
+      focusEditor(first);
+      first.handleInput("\x1b");
+      first.render(20);
+      assert.deepEqual(tui.terminalWrites, [BLOCK_CURSOR_SHAPE]);
+      assert.deepEqual(tui.hardwareCursorValues, [true]);
+
+      const replacement = extension.editorFactory(
+        tui,
+        stubTheme,
+        stubKeybindings,
+      );
+      assert.notEqual(replacement, first);
+      assert.deepEqual(tui.terminalWrites, [
+        BLOCK_CURSOR_SHAPE,
+        RESET_CURSOR_SHAPE,
+      ]);
+      assert.deepEqual(tui.hardwareCursorValues, [
+        true,
+        initialShowHardwareCursor,
+        true,
+      ]);
+
+      focusEditor(replacement);
+      replacement.render(20);
+      assert.deepEqual(tui.terminalWrites, [
+        BLOCK_CURSOR_SHAPE,
+        RESET_CURSOR_SHAPE,
+        INSERT_CURSOR_SHAPE,
+      ]);
+      assert.equal(replacement.getMode(), "insert");
+
+      await extension.emitShutdown();
+      assert.deepEqual(tui.terminalWrites, [
+        BLOCK_CURSOR_SHAPE,
+        RESET_CURSOR_SHAPE,
+        INSERT_CURSOR_SHAPE,
+        RESET_CURSOR_SHAPE,
+      ]);
+      assert.deepEqual(tui.hardwareCursorValues, [
+        true,
+        initialShowHardwareCursor,
+        true,
+        initialShowHardwareCursor,
+      ]);
+      assert.equal(tui.getShowHardwareCursor?.(), initialShowHardwareCursor);
+
+      await extension.emitShutdown();
+      assert.deepEqual(tui.terminalWrites, [
+        BLOCK_CURSOR_SHAPE,
+        RESET_CURSOR_SHAPE,
+        INSERT_CURSOR_SHAPE,
+        RESET_CURSOR_SHAPE,
+      ]);
+      assert.deepEqual(tui.hardwareCursorValues, [
+        true,
+        initialShowHardwareCursor,
+        true,
+        initialShowHardwareCursor,
+      ]);
+    });
+
+    it(`preserves the original ${initialShowHardwareCursor} cursor setting through repeated session starts`, async () => {
+      const extension = await installExtensionWithEditorFactory();
+      const tui = createCursorShapeTui({ initialShowHardwareCursor });
+      extension.editorFactory(tui, stubTheme, stubKeybindings);
+      const writes: string[] = [];
+      const toggles = [true];
+      assert.deepEqual(tui.terminalWrites, writes);
+      assert.deepEqual(tui.hardwareCursorValues, toggles);
+
+      for (let session = 0; session < 2; session++) {
+        await extension.emitSessionStart();
+        writes.push(RESET_CURSOR_SHAPE);
+        toggles.push(initialShowHardwareCursor);
+        assert.deepEqual(tui.terminalWrites, writes);
+        assert.deepEqual(tui.hardwareCursorValues, toggles);
+        assert.equal(tui.getShowHardwareCursor?.(), initialShowHardwareCursor);
+
+        // Starting again without constructing an editor must not reuse cleanup.
+        await extension.emitSessionStart();
+        assert.deepEqual(tui.terminalWrites, writes);
+        assert.deepEqual(tui.hardwareCursorValues, toggles);
+
+        extension.editorFactory(tui, stubTheme, stubKeybindings);
+        toggles.push(true);
+        assert.deepEqual(tui.terminalWrites, writes);
+        assert.deepEqual(tui.hardwareCursorValues, toggles);
+        assert.equal(tui.getShowHardwareCursor?.(), true);
+      }
+
+      await extension.emitShutdown({ reason: "reload" });
+      writes.push(RESET_CURSOR_SHAPE);
+      toggles.push(initialShowHardwareCursor);
+      assert.deepEqual(tui.terminalWrites, writes);
+      assert.deepEqual(tui.hardwareCursorValues, toggles);
+      assert.equal(tui.getShowHardwareCursor?.(), initialShowHardwareCursor);
+
+      await extension.emitShutdown({ reason: "quit" });
+      assert.deepEqual(tui.terminalWrites, writes);
+      assert.deepEqual(tui.hardwareCursorValues, toggles);
+    });
+  }
+
   it("registers cleanup on session_shutdown and not session_end", async () => {
     const extension = await installExtensionWithEditorFactory();
 

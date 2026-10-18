@@ -4113,8 +4113,12 @@ export class ModalEditor extends CustomEditor {
 
   private publishModeLabel(): void {
     if (this.modeLabelPlacement !== "status" || !this.onModeLabel) return;
-    // Keep a balanced spacer inside the painted mode block on both sides.
-    const raw = fitModeLabel(this.getModeLabel(), this.statusWidth);
+    // Reserve the painted trailing spacer even when the mode/pending text clips.
+    const fitted = fitModeLabel(
+      this.getModeLabel().slice(0, -1),
+      Math.max(0, this.statusWidth - 1),
+    ).trimEnd();
+    const raw = this.statusWidth > 0 ? `${fitted} ` : "";
     const paint = this.getModeLabelColorizer();
     const label = paint ? paint(raw) : raw;
     if (label === this.lastStatusLabel) return;

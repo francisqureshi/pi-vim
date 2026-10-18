@@ -19,6 +19,14 @@ Reproduce from a sibling [pi-bookmarks](https://github.com/francisqureshi/pi-boo
 PI_VIM_EXTENSION="$PWD/index.ts" uv run --with pyte python ../pi-bookmarks/test/pty-smoke.py --vim-first --compact-labels
 ```
 
+## Automated native-status evidence
+
+Isolated Pi 1.3.0 PTY runs without Powerline passed for both full and compact
+status labels. Each mode (INSERT/NORMAL/VISUAL/V-LINE or I/N/V/VL) appeared
+once, not in the editor border. EX command text, pending counts, resize, and
+extension reload also passed. No prompt was submitted; temporary configuration
+was discarded. The native-status steps below describe the same interaction.
+
 ## Automated Powerline evidence
 
 A real Pi 1.3.0 pseudo-terminal run with pi-powerline-footer 0.20.2 passed
